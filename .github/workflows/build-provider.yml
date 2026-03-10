@@ -3,12 +3,12 @@ name: Build Terraform Provider
 on:
   push:
     paths:
-      - 'module/name-generator-provider/**'
+      - '/name-generator-provider/**'
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -19,14 +19,25 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Build provider
+      - name: Build Linux binary
         run: |
           cd module/name-generator-provider
           go mod download
-          go build -o terraform-provider-namegen.exe
+          go build -o terraform-provider-namegen
 
-      - name: Upload artifact
+      - name: Build Windows binary
+        run: |
+          cd module/name-generator-provider
+          GOOS=windows GOARCH=amd64 go build -o terraform-provider-namegen.exe
+
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-provider-namegen
+          name: terraform-provider-namegen-linux
+          path: module/name-generator-provider/terraform-provider-namegen
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-namegen-windows
           path: module/name-generator-provider/terraform-provider-namegen.exe
