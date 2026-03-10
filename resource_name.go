@@ -16,7 +16,9 @@ import (
 // Ensure provider defined types fully satisfy framework interfaces
 var _ resource.Resource = &NameResource{}
 
-type NameResource struct{}
+type NameResource struct{
+	apiBaseURL string
+}
 
 type NameResourceModel struct {
 	Id           types.String `tfsdk:"id"`
@@ -51,6 +53,19 @@ type APIResponse struct {
 
 func NewNameResource() resource.Resource {
 	return &NameResource{}
+}
+// Implement the Configure method to receive provider data
+func (r *NameResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+       if req.ProviderData == nil {
+	       r.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
+	       return
+       }
+       apiBaseURL, ok := req.ProviderData.(string)
+       if ok && apiBaseURL != "" {
+	       r.apiBaseURL = apiBaseURL
+       } else {
+	       r.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
+       }
 }
 
 func (r *NameResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -148,14 +163,11 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 	       return
        }
 
-       // Get API URL from provider data
-       apiURL, ok := req.ProviderData.(string)
-       if !ok || apiURL == "" {
-	       apiURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
-       }
+	       // Use API URL from resource struct
+	       apiURL := r.apiBaseURL
 
-       // Make HTTP request to name generation API
-       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+	       // Make HTTP request to name generation API
+	       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
        if err != nil {
 	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
 	       return
