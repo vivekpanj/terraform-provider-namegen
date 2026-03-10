@@ -1,0 +1,29 @@
+# Simple Linux-based Dockerfile for cross-compiling Windows provider
+FROM golang:1.21-alpine as builder
+
+# Install build essentials
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /app
+
+# Copy Go modules files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY *.go ./
+
+# Cross-compile for Windows
+ENV GOOS=windows
+ENV GOARCH=amd64
+ENV CGO_ENABLED=0
+
+# Build the provider binary
+RUN go build -o terraform-provider-namegen.exe
+
+# Final stage - just copy the binary out
+FROM scratch
+COPY --from=builder /app/terraform-provider-namegen.exe /terraform-provider-namegen.exe

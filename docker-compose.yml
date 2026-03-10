@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  provider-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.linux
+    volumes:
+      # Mount current directory to copy the built binary out
+      - .:/output
+    command: >
+      sh -c "
+        echo 'Building provider...' &&
+        cp /terraform-provider-namegen.exe /output/terraform-provider-namegen.exe &&
+        echo 'Provider binary copied to host!'
+      "
