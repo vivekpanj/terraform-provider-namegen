@@ -13,7 +13,6 @@ var (
 )
 
 func main() {
-	ctx := context.Background()
 
 	// Create the provider server
 	providers := []func() tfprotov6.ProviderServer{
