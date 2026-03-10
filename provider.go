@@ -14,7 +14,8 @@ import (
 var _ provider.Provider = &namegenProvider{}
 
 type namegenProvider struct {
-	version string
+	version    string
+	apiBaseURL string
 }
 
 type namegenProviderModel struct {
@@ -53,16 +54,24 @@ func (p *namegenProvider) Schema(ctx context.Context, req provider.SchemaRequest
 }
 
 func (p *namegenProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data namegenProviderModel
+       var data namegenProviderModel
 
-	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+       resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
-	if resp.Diagnostics.HasError() {
-		return
-	}
+       if resp.Diagnostics.HasError() {
+	       return
+       }
 
-	// Configuration values are available in data
-	// You would set up your API client here
+       if !data.APIBaseURL.IsNull() && !data.APIBaseURL.IsUnknown() {
+	       p.apiBaseURL = data.APIBaseURL.ValueString()
+       } else {
+	       // Default value if not set
+	       p.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
+       }
+
+       // Pass provider data to resources
+       resp.DataSourceData = p.apiBaseURL
+       resp.ResourceData = p.apiBaseURL
 }
 
 func (p *namegenProvider) Resources(ctx context.Context) []func() resource.Resource {

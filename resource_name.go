@@ -115,49 +115,54 @@ func (r *NameResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 }
 
 func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data NameResourceModel
+       var data NameResourceModel
 
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+       // Read Terraform plan data into the model
+       resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+       if resp.Diagnostics.HasError() {
+	       return
+       }
 
-	// Generate cache key
-	cacheKey := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
-		data.Cloudregion.ValueString(),
-		data.ProjectId.ValueString(),
-		data.Assettag.ValueString(),
-		data.ResourceType.ValueString(),
-		data.NameContext.ValueString(),
-		data.Environment.ValueString())
+       // Generate cache key
+       cacheKey := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
+	       data.Cloudregion.ValueString(),
+	       data.ProjectId.ValueString(),
+	       data.Assettag.ValueString(),
+	       data.ResourceType.ValueString(),
+	       data.NameContext.ValueString(),
+	       data.Environment.ValueString())
 
-	// Call name generation API
-	apiReq := APIRequest{}
-	apiReq.ResourceProperties.Type = "gcpname"
-	apiReq.ResourceProperties.ResourceType = data.ResourceType.ValueString()
-	apiReq.ResourceProperties.Cloudregion = data.Cloudregion.ValueString()
-	apiReq.ResourceProperties.PlatformCode = data.PlatformCode.ValueString()
-	apiReq.ResourceProperties.Environment = data.Environment.ValueString()
-	apiReq.ResourceProperties.Assettag = data.Assettag.ValueString()
-	apiReq.ResourceProperties.NameContext = data.NameContext.ValueString()
+       // Call name generation API
+       apiReq := APIRequest{}
+       apiReq.ResourceProperties.Type = "gcpname"
+       apiReq.ResourceProperties.ResourceType = data.ResourceType.ValueString()
+       apiReq.ResourceProperties.Cloudregion = data.Cloudregion.ValueString()
+       apiReq.ResourceProperties.PlatformCode = data.PlatformCode.ValueString()
+       apiReq.ResourceProperties.Environment = data.Environment.ValueString()
+       apiReq.ResourceProperties.Assettag = data.Assettag.ValueString()
+       apiReq.ResourceProperties.NameContext = data.NameContext.ValueString()
 
-	jsonData, err := json.Marshal(apiReq)
-	if err != nil {
-		resp.Diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Unable to marshal API request: %s", err))
-		return
-	}
+       jsonData, err := json.Marshal(apiReq)
+       if err != nil {
+	       resp.Diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Unable to marshal API request: %s", err))
+	       return
+       }
 
-	// Make HTTP request to name generation API
-	apiURL := "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
-	httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
-		return
-	}
-	defer httpResp.Body.Close()
+       // Get API URL from provider data
+       apiURL, ok := req.ProviderData.(string)
+       if !ok || apiURL == "" {
+	       apiURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
+       }
 
-	var apiResp APIResponse
+       // Make HTTP request to name generation API
+       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+       if err != nil {
+	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
+	       return
+       }
+       defer httpResp.Body.Close()
+
+       var apiResp APIResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
 		resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
 		return
