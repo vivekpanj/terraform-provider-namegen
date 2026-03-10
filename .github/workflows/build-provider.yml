@@ -19,25 +19,26 @@ jobs:
         with:
           go-version: '1.21'
 
+
+
+
       - name: Build Linux binary
         run: |
-          cd module/name-generator-provider
           go mod download
           go build -o terraform-provider-namegen
 
       - name: Build Windows binary
         run: |
-          cd module/name-generator-provider
           GOOS=windows GOARCH=amd64 go build -o terraform-provider-namegen.exe
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: terraform-provider-namegen-linux
-          path: module/name-generator-provider/terraform-provider-namegen
+          path: terraform-provider-namegen
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: terraform-provider-namegen-windows
-          path: module/name-generator-provider/terraform-provider-namegen.exe
+          path: terraform-provider-namegen.exe
