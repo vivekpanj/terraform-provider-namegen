@@ -22,6 +22,9 @@ jobs:
 
 
 
+      - name: Tidy Go modules
+        run: go mod tidy
+        
       - name: Build Linux binary
         run: |
           go mod download
