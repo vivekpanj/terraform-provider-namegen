@@ -263,21 +263,27 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 >>>>>>> cf2c28d7b82267e0e744352dfaabc120b62ea287
 
-       var apiResp APIResponse
-       if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
-	       resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
-	       return
-       }
+	var apiResp APIResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
+		resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
+		return
+	}
 
-       // Set computed values
-       data.Id = types.StringValue(cacheKey)
-       data.Name = types.StringValue(apiResp.Result)
-       data.CacheKey = types.StringValue(cacheKey)
-       data.Cached = types.BoolValue(false) // New generation
-       data.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+	// Check for error in result
+	if strings.Contains(strings.ToLower(apiResp.Result), "error") {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("API returned error: %s", apiResp.Result))
+		return
+	}
 
-       // Save data into Terraform state
-       resp.Diagnostics.Append(resp.State.Set(ctx, &data)...) 
+	// Set computed values
+	data.Id = types.StringValue(cacheKey)
+	data.Name = types.StringValue(apiResp.Result)
+	data.CacheKey = types.StringValue(cacheKey)
+	data.Cached = types.BoolValue(false) // New generation
+	data.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+
+	// Save data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...) 
 }
 
 func (r *NameResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
