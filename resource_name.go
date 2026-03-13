@@ -19,18 +19,21 @@ var _ resource.Resource = &NameResource{}
 type NameResource struct{}
 
 type NameResourceModel struct {
-	Id           types.String `tfsdk:"id"`
-	ProjectId    types.String `tfsdk:"project_id"`
-	Assettag     types.String `tfsdk:"assettag"`
-	NameContext  types.String `tfsdk:"name_context"`
-	ResourceType types.String `tfsdk:"resource_type"`
-	Environment  types.String `tfsdk:"environment"`
-	Cloudregion  types.String `tfsdk:"cloudregion"`
-	PlatformCode types.String `tfsdk:"platform_code"`
-	Name         types.String `tfsdk:"name"`
-	CacheKey     types.String `tfsdk:"cache_key"`
-	Cached       types.Bool   `tfsdk:"cached"`
-	LastUpdated  types.String `tfsdk:"last_updated"`
+	Id            types.String `tfsdk:"id"`
+	Type          types.String `tfsdk:"type"`
+	ApiUrl        types.String `tfsdk:"api_url"`
+	HostnameType  types.String `tfsdk:"hostname_type"`
+	StackId       types.String `tfsdk:"stack_id"`
+	ResourceType  types.String `tfsdk:"resource_type"`
+	Cloudregion   types.String `tfsdk:"cloudregion"`
+	PlatformCode  types.String `tfsdk:"platform_code"`
+	Environment   types.String `tfsdk:"environment"`
+	Assettag      types.String `tfsdk:"assettag"`
+	NameContext   types.String `tfsdk:"name_context"`
+	Name          types.String `tfsdk:"name"`
+	CacheKey      types.String `tfsdk:"cache_key"`
+	Cached        types.Bool   `tfsdk:"cached"`
+	LastUpdated   types.String `tfsdk:"last_updated"`
 }
 
 type APIRequest struct {
@@ -58,120 +61,167 @@ func (r *NameResource) Metadata(ctx context.Context, req resource.MetadataReques
 }
 
 func (r *NameResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Name generation resource",
-
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Resource identifier",
-			},
-			"project_id": schema.StringAttribute{
-				MarkdownDescription: "GCP project ID",
-				Required:            true,
-			},
-			"assettag": schema.StringAttribute{
-				MarkdownDescription: "6-digit asset tag",
-				Required:            true,
-			},
-			"name_context": schema.StringAttribute{
-				MarkdownDescription: "Resource context/purpose",
-				Required:            true,
-			},
-			"resource_type": schema.StringAttribute{
-				MarkdownDescription: "Resource type code",
-				Optional:            true,
-			},
-			"environment": schema.StringAttribute{
-				MarkdownDescription: "Environment (d/t/p)",
-				Optional:            true,
-			},
-			"cloudregion": schema.StringAttribute{
-				MarkdownDescription: "Cloud region code",
-				Optional:            true,
-			},
-			"platform_code": schema.StringAttribute{
-				MarkdownDescription: "Platform code",
-				Optional:            true,
-			},
-			"name": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Generated resource name",
-			},
-			"cache_key": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Unique cache key",
-			},
-			"cached": schema.BoolAttribute{
-				Computed:            true,
-				MarkdownDescription: "Whether result was cached",
-			},
-			"last_updated": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Last update timestamp",
-			},
-		},
-	}
+       resp.Schema = schema.Schema{
+	       MarkdownDescription: "Name generation resource",
+	       Attributes: map[string]schema.Attribute{
+		       "id": schema.StringAttribute{
+			       Computed:            true,
+			       MarkdownDescription: "Resource identifier",
+		       },
+		       "type": schema.StringAttribute{
+			       MarkdownDescription: "Type of name generation (host, DB, gcpname)",
+			       Required:            true,
+		       },
+		       "api_url": schema.StringAttribute{
+			       MarkdownDescription: "API endpoint URL for name generation",
+			       Required:            true,
+		       },
+		       "hostname_type": schema.StringAttribute{
+			       MarkdownDescription: "Hostname type (required for host/DB)",
+			       Optional:            true,
+		       },
+		       "stack_id": schema.StringAttribute{
+			       MarkdownDescription: "Stack ID (required for host/DB)",
+			       Optional:            true,
+		       },
+		       "resource_type": schema.StringAttribute{
+			       MarkdownDescription: "Resource type code (required for gcpname)",
+			       Optional:            true,
+		       },
+		       "cloudregion": schema.StringAttribute{
+			       MarkdownDescription: "Cloud region code (required for gcpname)",
+			       Optional:            true,
+		       },
+		       "platform_code": schema.StringAttribute{
+			       MarkdownDescription: "Platform code (required for gcpname)",
+			       Optional:            true,
+		       },
+		       "environment": schema.StringAttribute{
+			       MarkdownDescription: "Environment (required for gcpname)",
+			       Optional:            true,
+		       },
+		       "assettag": schema.StringAttribute{
+			       MarkdownDescription: "6-digit asset tag (required for gcpname)",
+			       Optional:            true,
+		       },
+		       "name_context": schema.StringAttribute{
+			       MarkdownDescription: "Resource context/purpose (required for gcpname)",
+			       Optional:            true,
+		       },
+		       "name": schema.StringAttribute{
+			       Computed:            true,
+			       MarkdownDescription: "Generated resource name",
+		       },
+		       "cache_key": schema.StringAttribute{
+			       Computed:            true,
+			       MarkdownDescription: "Unique cache key",
+		       },
+		       "cached": schema.BoolAttribute{
+			       Computed:            true,
+			       MarkdownDescription: "Whether result was cached",
+		       },
+		       "last_updated": schema.StringAttribute{
+			       Computed:            true,
+			       MarkdownDescription: "Last update timestamp",
+		       },
+	       },
+       }
 }
 
 func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data NameResourceModel
+       var data NameResourceModel
 
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+       // Read Terraform plan data into the model
+       resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+       if resp.Diagnostics.HasError() {
+	       return
+       }
 
-	// Generate cache key
-	cacheKey := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
-		data.Cloudregion.ValueString(),
-		data.ProjectId.ValueString(),
-		data.Assettag.ValueString(),
-		data.ResourceType.ValueString(),
-		data.NameContext.ValueString(),
-		data.Environment.ValueString())
+       // Validate required fields based on type
+       t := data.Type.ValueString()
+       switch t {
+       case "host", "DB":
+	       if data.HostnameType.IsNull() || data.StackId.IsNull() {
+		       resp.Diagnostics.AddError("Missing Required Fields", "'hostname_type' and 'stack_id' are required for type 'host' or 'DB'.")
+		       return
+	       }
+       case "gcpname":
+	       if data.ResourceType.IsNull() || data.Cloudregion.IsNull() || data.PlatformCode.IsNull() || data.Environment.IsNull() || data.Assettag.IsNull() || data.NameContext.IsNull() {
+		       resp.Diagnostics.AddError("Missing Required Fields", "'resource_type', 'cloudregion', 'platform_code', 'environment', 'assettag', and 'name_context' are required for type 'gcpname'.")
+		       return
+	       }
+       default:
+	       resp.Diagnostics.AddError("Invalid Type", "'type' must be one of: host, DB, gcpname.")
+	       return
+       }
 
-	// Call name generation API
-	apiReq := APIRequest{}
-	apiReq.ResourceProperties.Type = "gcpname"
-	apiReq.ResourceProperties.ResourceType = data.ResourceType.ValueString()
-	apiReq.ResourceProperties.Cloudregion = data.Cloudregion.ValueString()
-	apiReq.ResourceProperties.PlatformCode = data.PlatformCode.ValueString()
-	apiReq.ResourceProperties.Environment = data.Environment.ValueString()
-	apiReq.ResourceProperties.Assettag = data.Assettag.ValueString()
-	apiReq.ResourceProperties.NameContext = data.NameContext.ValueString()
+       // Generate cache key (example, can be customized)
+       cacheKey := fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s",
+	       t,
+	       data.HostnameType.ValueString(),
+	       data.StackId.ValueString(),
+	       data.ResourceType.ValueString(),
+	       data.Cloudregion.ValueString(),
+	       data.PlatformCode.ValueString(),
+	       data.Environment.ValueString(),
+	       data.Assettag.ValueString(),
+       )
 
-	jsonData, err := json.Marshal(apiReq)
-	if err != nil {
-		resp.Diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Unable to marshal API request: %s", err))
-		return
-	}
+       // Build API request body
+       var apiReq map[string]interface{}
+       switch t {
+       case "host", "DB":
+	       apiReq = map[string]interface{}{
+		       "ResourceProperties": map[string]interface{}{
+			       "HostnameType": data.HostnameType.ValueString(),
+			       "StackId":      data.StackId.ValueString(),
+			       "type":         t,
+		       },
+	       }
+       case "gcpname":
+	       apiReq = map[string]interface{}{
+		       "ResourceProperties": map[string]interface{}{
+			       "type":          t,
+			       "resource_type": data.ResourceType.ValueString(),
+			       "cloudregion":   data.Cloudregion.ValueString(),
+			       "platform_code": data.PlatformCode.ValueString(),
+			       "environment":   data.Environment.ValueString(),
+			       "assettag":      data.Assettag.ValueString(),
+			       "name_context":  data.NameContext.ValueString(),
+		       },
+	       }
+       }
 
-	// Make HTTP request to name generation API
-	apiURL := "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
-	httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
-		return
-	}
-	defer httpResp.Body.Close()
+       jsonData, err := json.Marshal(apiReq)
+       if err != nil {
+	       resp.Diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Unable to marshal API request: %s", err))
+	       return
+       }
 
-	var apiResp APIResponse
-	if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
-		resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
-		return
-	}
+       // Make HTTP request to name generation API
+       apiURL := data.ApiUrl.ValueString()
+       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+       if err != nil {
+	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
+	       return
+       }
+       defer httpResp.Body.Close()
 
-	// Set computed values
-	data.Id = types.StringValue(cacheKey)
-	data.Name = types.StringValue(apiResp.Result)
-	data.CacheKey = types.StringValue(cacheKey)
-	data.Cached = types.BoolValue(false) // New generation
-	data.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+       var apiResp APIResponse
+       if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
+	       resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
+	       return
+       }
 
-	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+       // Set computed values
+       data.Id = types.StringValue(cacheKey)
+       data.Name = types.StringValue(apiResp.Result)
+       data.CacheKey = types.StringValue(cacheKey)
+       data.Cached = types.BoolValue(false) // New generation
+       data.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+
+       // Save data into Terraform state
+       resp.Diagnostics.Append(resp.State.Set(ctx, &data)...) 
 }
 
 func (r *NameResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
