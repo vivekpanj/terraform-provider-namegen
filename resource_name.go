@@ -16,7 +16,9 @@ import (
 // Ensure provider defined types fully satisfy framework interfaces
 var _ resource.Resource = &NameResource{}
 
-type NameResource struct{}
+type NameResource struct{
+	apiBaseURL string
+}
 
 type NameResourceModel struct {
 	Id            types.String `tfsdk:"id"`
@@ -54,6 +56,19 @@ type APIResponse struct {
 
 func NewNameResource() resource.Resource {
 	return &NameResource{}
+}
+// Implement the Configure method to receive provider data
+func (r *NameResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+       if req.ProviderData == nil {
+	       r.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
+	       return
+       }
+       apiBaseURL, ok := req.ProviderData.(string)
+       if ok && apiBaseURL != "" {
+	       r.apiBaseURL = apiBaseURL
+       } else {
+	       r.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
+       }
 }
 
 func (r *NameResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -137,6 +152,7 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 	       return
        }
 
+<<<<<<< HEAD
        // Validate required fields based on type
        t := data.Type.ValueString()
        switch t {
@@ -186,7 +202,6 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 			       "cloudregion":   data.Cloudregion.ValueString(),
 			       "platform_code": data.PlatformCode.ValueString(),
 			       "environment":   data.Environment.ValueString(),
-			       "assettag":      data.Assettag.ValueString(),
 			       "name_context":  data.NameContext.ValueString(),
 		       },
 	       }
@@ -201,11 +216,52 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
        // Make HTTP request to name generation API
        apiURL := data.ApiUrl.ValueString()
        httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+=======
+       // Generate cache key
+       cacheKey := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
+	       data.Cloudregion.ValueString(),
+	       data.ProjectId.ValueString(),
+	       data.Assettag.ValueString(),
+	       data.ResourceType.ValueString(),
+	       data.NameContext.ValueString(),
+	       data.Environment.ValueString())
+
+       // Call name generation API
+       apiReq := APIRequest{}
+       apiReq.ResourceProperties.Type = "gcpname"
+       apiReq.ResourceProperties.ResourceType = data.ResourceType.ValueString()
+       apiReq.ResourceProperties.Cloudregion = data.Cloudregion.ValueString()
+       apiReq.ResourceProperties.PlatformCode = data.PlatformCode.ValueString()
+       apiReq.ResourceProperties.Environment = data.Environment.ValueString()
+       apiReq.ResourceProperties.Assettag = data.Assettag.ValueString()
+       apiReq.ResourceProperties.NameContext = data.NameContext.ValueString()
+
+       jsonData, err := json.Marshal(apiReq)
+       if err != nil {
+	       resp.Diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Unable to marshal API request: %s", err))
+	       return
+       }
+
+	       // Use API URL from resource struct
+	       apiURL := r.apiBaseURL
+
+	       // Make HTTP request to name generation API
+	       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+>>>>>>> cf2c28d7b82267e0e744352dfaabc120b62ea287
        if err != nil {
 	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
 	       return
        }
        defer httpResp.Body.Close()
+<<<<<<< HEAD
+=======
+
+       var apiResp APIResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
+		resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
+		return
+	}
+>>>>>>> cf2c28d7b82267e0e744352dfaabc120b62ea287
 
        var apiResp APIResponse
        if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
@@ -263,4 +319,3 @@ func (r *NameResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	}
 
 	// No API cleanup needed - just remove from state
-}

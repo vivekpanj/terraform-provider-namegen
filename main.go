@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6/tf6server"
@@ -13,7 +11,6 @@ var (
 )
 
 func main() {
-	ctx := context.Background()
 
 	// Create the provider server
 	providers := []func() tfprotov6.ProviderServer{
