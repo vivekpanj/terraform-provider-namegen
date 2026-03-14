@@ -34,14 +34,22 @@ jobs:
         run: |
           GOOS=windows GOARCH=amd64 go build -o terraform-provider-namegen.exe
 
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-provider-namegen-linux
-          path: terraform-provider-namegen
+      - name: Zip Linux binary
+        run: |
+          zip terraform-provider-namegen_1.0.0_linux_amd64.zip terraform-provider-namegen
 
-      - name: Upload Windows artifact
+      - name: Zip Windows binary
+        run: |
+          zip terraform-provider-namegen_1.0.0_windows_amd64.zip terraform-provider-namegen.exe
+
+      - name: Upload Linux zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-provider-namegen-windows
-          path: terraform-provider-namegen.exe
+          name: terraform-provider-namegen_1.0.0_linux_amd64.zip
+          path: terraform-provider-namegen_1.0.0_linux_amd64.zip
+
+      - name: Upload Windows zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-namegen_1.0.0_windows_amd64.zip
+          path: terraform-provider-namegen_1.0.0_windows_amd64.zip

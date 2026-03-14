@@ -1,38 +1,25 @@
-# Name Generator Provider - Local Development
 
-This directory contains the Go source code for a custom Terraform provider for name generation.
+# Name Generator Terraform Provider
+
+This directory contains the Go source code for a custom Terraform provider that generates names using a configurable API and supports multiple name generation types.
 
 ## 🚀 Quick Start
 
-### Option A: Docker Build (No Go Installation Required) ⭐
- 
-```powershell
-# From this directory - requires Docker Desktop
-.\build-docker.ps1
-```
-
-**Alternative Docker commands:**
-```powershell
-# Using docker-compose (if you prefer)
-docker-compose up --build
-```
-
-### Option B: Local Go Build (Requires Go 1.21+)
+### Local Go Build (Requires Go 1.21+)
 
 ```bash
 # From this directory
 make install
 ```
 
-### 1. Build and Install Provider Locally
-
-### 2. Use in Terraform Examples
+### Example Usage
 
 ```bash
+# (Optional) Change to your Terraform example directory
 cd ../../examples/name-generator-provider-example/
-terraform init   # ✅ Now works - downloads from local plugins
-terraform plan   # ✅ Uses the namegen_name resource
-terraform apply  # ✅ Generates names via provider
+terraform init
+terraform plan
+terraform apply
 ```
 
 ## 📁 Provider Structure
@@ -42,142 +29,155 @@ name-generator-provider/
 ├── main.go              # Provider entry point
 ├── provider.go          # Provider schema and configuration
 ├── resource_name.go     # namegen_name resource implementation
-├── go.mod              # Go module definition
-├── Makefile            # Build automation
-└── README.md           # This file
+├── go.mod               # Go module definition
+├── Makefile             # Build automation
+└── README.md            # This file
 ```
+
 
 ## 🔧 Development Workflow
 
 ### Initial Setup
 ```bash
-# Initialize Go modules (first time only)
 make init
 ```
 
 ### Build and Test
 ```bash
-# Build provider binary
-make build
-
-# Install locally for testing
-make install
-
-# Clean build artifacts
-make clean
+make build      # Build provider binary
+make install    # Install locally for testing
+make clean      # Clean build artifacts
 ```
 
-### Terraform Usage
+### GitHub Actions Workflow
+
+This repo includes a workflow at `.github/workflows/build-provider.yml` that builds the provider for Linux and Windows and uploads the binaries as artifacts on every push.
+
+## Terraform Usage Example
+
 ```hcl
 terraform {
   required_providers {
     namegen = {
-      source  = "local/namegen"  # Uses locally installed provider
+      source  = "local/namegen"  # For local development
       version = "~> 1.0"
     }
   }
 }
 
 provider "namegen" {
-  api_base_url           = "https://your-api-endpoint.com"
+  api_base_url = "https://your-api-endpoint.com" # Required
+  # Optionally set provider-level defaults for fields below
   default_cloudregion    = "gfr"
   default_platform_code  = "CC"
   default_environment    = "d"
 }
 
-resource "namegen_name" "example" {
-  project_id   = "my-project"
-  assettag     = "100001"
-  name_context = "Web Server"
-  resource_type = "st"
+# --- Option 1: type = "host" ---
+resource "namegen_name" "host_example" {
+  type          = "host"         # Required: "host"
+  api_url       = "https://your-api-endpoint.com" # Required
+  hostname_type = "app"          # Required for host
+  stack_id      = "stack01"      # Required for host
+}
+
+# --- Option 2: type = "DB" ---
+resource "namegen_name" "db_example" {
+  type          = "DB"           # Required: "DB"
+  api_url       = "https://your-api-endpoint.com" # Required
+  hostname_type = "db"           # Required for DB
+  stack_id      = "stack02"      # Required for DB
+}
+
+# --- Option 3: type = "gcpname" ---
+resource "namegen_name" "gcp_example" {
+  type          = "gcpname"            # Required: "gcpname"
+  api_url       = "https://your-api-endpoint.com" # Required
+  resource_type = "gcp_cloudstorage"   # Example: GCP Cloud Storage bucket
+  cloudregion   = "us-central1"        # Required for gcpname
+  platform_code = "CC"                 # Required for gcpname
+  environment   = "d"                  # Required for gcpname
+  assettag      = "100001"             # Required for gcpname
+  name_context  = "Web Server"         # Required for gcpname
 }
 
 output "name" {
-  value = namegen_name.example.name
+  value = namegen_name.gcp_example.name
 }
 ```
 
-## 🎯 Resource Schema
+
+## 🎯 Provider & Resource Schema
 
 ### Provider Configuration
-- `api_base_url` (Optional) - Name generation API endpoint
-- `default_cloudregion` (Optional) - Default region for all resources
-- `default_platform_code` (Optional) - Default platform code
-- `default_environment` (Optional) - Default environment
+- `api_base_url` (**Required**) – Name generation API endpoint
+- `default_cloudregion` (Optional) – Default region for all resources
+- `default_platform_code` (Optional) – Default platform code
+- `default_environment` (Optional) – Default environment
 
 ### Resource: `namegen_name`
 
 **Required Arguments:**
-- `project_id` - GCP project identifier
-- `assettag` - 6-digit asset tag
-- `name_context` - Resource context/purpose
+- `type` (**Required**): One of `host`, `DB`, or `gcpname`
+- `api_url` (**Required**): API endpoint URL for name generation
 
-**Optional Arguments:**
-- `resource_type` - Resource type code (inherits provider default)
-- `environment` - Environment identifier (inherits provider default)
-- `cloudregion` - Cloud region code (inherits provider default)
-- `platform_code` - Platform code (inherits provider default)
+**Parameters by Type:**
+
+- If `type = "host"`:
+  - `hostname_type` (**Required**)
+  - `stack_id` (**Required**)
+
+- If `type = "DB"`:
+  - `hostname_type` (**Required**)
+  - `stack_id` (**Required**)
+
+- If `type = "gcpname"`:
+  - `resource_type` (**Required**)
+  - `cloudregion` (**Required**)
+  - `platform_code` (**Required**)
+  - `environment` (**Required**)
+  - `assettag` (**Required**)
+  - `name_context` (**Required**)
 
 **Computed Attributes:**
-- `id` - Terraform resource ID
-- `name` - Generated resource name
-- `cache_key` - Unique cache identifier
-- `cached` - Whether result was cached
-- `last_updated` - Timestamp of last update
+- `id` – Terraform resource ID
+- `name` – Generated resource name
+- `cache_key` – Unique cache identifier
+- `cached` – Whether result was cached
+- `last_updated` – Timestamp of last update
 
-## 🔄 Local Installation Process
+
+## 🔄 Local Installation
 
 When you run `make install`, the provider is installed to:
+
 ```
-~/.terraform.d/plugins/local/namegen/1.0.0/windows_amd64/terraform-provider-namegen
+~/.terraform.d/plugins/local/namegen/1.0.0/<os>_<arch>/terraform-provider-namegen
 ```
 
 Terraform finds it when you specify:
+
 ```hcl
 source = "local/namegen"
 ```
 
-## 🚀 Moving to Production
+## 🚀 Publishing
 
-### 1. Publish to GitHub Releases
-```bash
-# Tag and release
-git tag v1.0.0
-git push --tags
+1. Tag and push a release:
+   ```bash
+   git tag v1.0.0
+   git push --tags
+   ```
+2. GitHub Actions will build and upload binaries as artifacts.
+3. For Terraform Registry, follow the [Provider Publishing Guide](https://www.terraform.io/docs/registry/providers/publishing.html).
 
-# GitHub Actions can build and release binaries
-```
 
-### 2. Update Terraform Configuration
-```hcl
-terraform {
-  required_providers {
-    namegen = {
-      source  = "github.com/your-org/terraform-provider-namegen"
-      version = "~> 1.0"
-    }
-  }
-}
-```
+## 🛠️ Customization & Extensibility
 
-### 3. Publish to Terraform Registry
-Follow [Terraform Registry Provider Publishing Guide](https://www.terraform.io/docs/registry/providers/publishing.html)
+- Add new resource types by creating new files and updating `provider.go`.
+- Enhance API integration (authentication, retries, caching, validation).
+- Add data sources for read-only operations.
 
-## 🛠️ Customization
-
-### Add New Resource Types
-1. Create new resource files (e.g., `resource_database.go`)
-2. Add to `provider.go` resources list
-3. Rebuild and reinstall
-
-### Enhance API Integration
-- Add authentication (API keys, OAuth)
-- Add retry logic and error handling
-- Add caching mechanisms
-- Add validation
-
-### Add Data Sources
-Create data source implementations for read-only operations.
 
 ## 📚 Further Reading
 
