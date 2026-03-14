@@ -284,3 +284,4 @@ func (r *NameResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	}
 
 	// No API cleanup needed - just remove from state
+}
