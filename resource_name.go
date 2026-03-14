@@ -61,14 +61,11 @@ func NewNameResource() resource.Resource {
 // Implement the Configure method to receive provider data
 func (r *NameResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
        if req.ProviderData == nil {
-	       r.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
 	       return
        }
        apiBaseURL, ok := req.ProviderData.(string)
        if ok && apiBaseURL != "" {
 	       r.apiBaseURL = apiBaseURL
-       } else {
-	       r.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
        }
 }
 

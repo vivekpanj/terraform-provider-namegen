@@ -64,9 +64,6 @@ func (p *namegenProvider) Configure(ctx context.Context, req provider.ConfigureR
 
        if !data.APIBaseURL.IsNull() && !data.APIBaseURL.IsUnknown() {
 	       p.apiBaseURL = data.APIBaseURL.ValueString()
-       } else {
-	       // Default value if not set
-	       p.apiBaseURL = "https://bie-cih-d-csc-apim.azure-api.net/bie-cih-d-fa-namegen/namegenerator"
        }
 
        // Pass provider data to resources
