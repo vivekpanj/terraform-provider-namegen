@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"bytes"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -147,6 +148,7 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
        var data NameResourceModel
 
        resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+       if resp.Diagnostics.HasError() {
 	       return
        }
 
@@ -199,33 +201,48 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 			       "cloudregion":   data.Cloudregion.ValueString(),
 			       "platform_code": data.PlatformCode.ValueString(),
 			       "environment":   data.Environment.ValueString(),
+			       "assettag":      data.Assettag.ValueString(),
 			       "name_context":  data.NameContext.ValueString(),
 		       },
 	       }
        }
 
+       jsonData, err := json.Marshal(apiReq)
+       if err != nil {
+	       resp.Diagnostics.AddError("JSON Marshal Error", fmt.Sprintf("Unable to marshal API request: %s", err))
+	       return
+       }
 
-	var apiResp APIResponse
-	if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
-		resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
-		return
-	}
+       // Make HTTP request to name generation API
+       apiURL := data.ApiUrl.ValueString()
+       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+       if err != nil {
+	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
+	       return
+       }
+       defer httpResp.Body.Close()
 
-	// Check for error in result
-	if strings.Contains(strings.ToLower(apiResp.Result), "error") {
-		resp.Diagnostics.AddError("API Error", fmt.Sprintf("API returned error: %s", apiResp.Result))
-		return
-	}
+       var apiResp APIResponse
+       if err := json.NewDecoder(httpResp.Body).Decode(&apiResp); err != nil {
+	       resp.Diagnostics.AddError("API Response Error", fmt.Sprintf("Unable to decode API response: %s", err))
+	       return
+       }
 
-	// Set computed values
-	data.Id = types.StringValue(cacheKey)
-	data.Name = types.StringValue(apiResp.Result)
-	data.CacheKey = types.StringValue(cacheKey)
-	data.Cached = types.BoolValue(false) // New generation
-	data.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+       // Check for error in result
+       if strings.Contains(strings.ToLower(apiResp.Result), "error") {
+	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("API returned error: %s", apiResp.Result))
+	       return
+       }
 
-	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...) 
+       // Set computed values
+       data.Id = types.StringValue(cacheKey)
+       data.Name = types.StringValue(apiResp.Result)
+       data.CacheKey = types.StringValue(cacheKey)
+       data.Cached = types.BoolValue(false) // New generation
+       data.LastUpdated = types.StringValue(time.Now().Format(time.RFC3339))
+
+       // Save data into Terraform state
+       resp.Diagnostics.Append(resp.State.Set(ctx, &data)...) 
 }
 
 func (r *NameResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
