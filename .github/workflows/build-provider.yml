@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - '/name-generator-provider/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -24,6 +26,15 @@ jobs:
 
       - name: Tidy Go modules
         run: go mod tidy
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+          fi
         
       - name: Build Linux binary
         run: |
@@ -36,20 +47,29 @@ jobs:
 
       - name: Zip Linux binary
         run: |
-          zip terraform-provider-namegen_1.0.0_linux_amd64.zip terraform-provider-namegen
+          zip terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_linux_amd64.zip terraform-provider-namegen
 
       - name: Zip Windows binary
         run: |
-          zip terraform-provider-namegen_1.0.0_windows_amd64.zip terraform-provider-namegen.exe
+          zip terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip terraform-provider-namegen.exe
 
       - name: Upload Linux zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-provider-namegen_1.0.0_linux_amd64.zip
-          path: terraform-provider-namegen_1.0.0_linux_amd64.zip
+          name: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_linux_amd64.zip
+          path: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_linux_amd64.zip
 
       - name: Upload Windows zip artifact
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-provider-namegen_1.0.0_windows_amd64.zip
-          path: terraform-provider-namegen_1.0.0_windows_amd64.zip
+          name: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip
+          path: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_linux_amd64.zip
+            terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip
+          generate_release_notes: true
