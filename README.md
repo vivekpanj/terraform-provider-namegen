@@ -64,16 +64,64 @@ make clean      # Clean build artifacts
 ### GitHub Actions Workflow
 
 This repo includes a workflow at `.github/workflows/build-provider.yml` that:
-- Triggers automatically when you push a version tag (e.g., `v1.0.0`)
+- **Triggers automatically on every push to `main` branch**
+- Auto-increments version numbers (patch version)
 - Builds the provider for **4 platforms**:
   - Linux (amd64)
   - Windows (amd64)
   - macOS Intel (darwin_amd64)
   - macOS Apple Silicon (darwin_arm64)
+- Embeds the version number into each binary
 - Generates SHA256SUMS for security verification
 - Creates a GitHub Release with all binaries attached
 - Uploads artifacts for each build
 
+## 🏷️ Automatic Versioning & Releases
+
+This provider uses **automatic continuous delivery**. Every push to the `main` branch automatically creates a new release with an incremented version.
+
+### How It Works
+
+**Automatic releases on every push to main:**
+1. Push or merge code to `main` branch
+2. GitHub Actions automatically:
+   - Detects the latest version tag (e.g., `v1.0.1`)
+   - Auto-increments the patch version (`v1.0.1` → `v1.0.2`)
+   - Creates a new git tag
+   - Builds binaries for all platforms with the version embedded
+   - Creates a GitHub Release with all artifacts
+
+**Manual version releases (for major/minor bumps):**
+For breaking changes or new features, manually create version tags:
+```bash
+# For a major version bump
+git tag v2.0.0
+git push origin v2.0.0
+
+# For a minor version bump
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+### Version Management
+
+- **Automatic**: Push to `main` → auto-increments patch version
+- **Manual major/minor bumps**: Create and push specific version tags
+- Version follows [Semantic Versioning](https://semver.org/): `vMAJOR.MINOR.PATCH`
+- Check current version: View releases at `https://github.com/your-org/your-repo/releases`
+
+### For Terraform Cloud Private Registry
+
+1. Add this GitHub repository to your Terraform Cloud organization
+2. Configure the registry to watch for new tags
+3. **Every push to main** automatically creates a new version in Terraform Cloud
+4. Users in your organization can reference versions:
+   ```hcl
+   namegen = {
+     source  = "your-org/namegen"
+     version = "~> 1.0.0"  # Auto-updates to latest patch version
+   }
+   ```
 ## Terraform Usage Example
 
 ```hcl
