@@ -2,8 +2,6 @@ name: Build Terraform Provider
 
 on:
   push:
-    paths:
-      - '/name-generator-provider/**'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -45,6 +43,14 @@ jobs:
         run: |
           GOOS=windows GOARCH=amd64 go build -o terraform-provider-namegen.exe
 
+      - name: Build macOS AMD64 binary
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o terraform-provider-namegen_darwin_amd64
+
+      - name: Build macOS ARM64 binary
+        run: |
+          GOOS=darwin GOARCH=arm64 go build -o terraform-provider-namegen_darwin_arm64
+
       - name: Zip Linux binary
         run: |
           zip terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_linux_amd64.zip terraform-provider-namegen
@@ -52,6 +58,18 @@ jobs:
       - name: Zip Windows binary
         run: |
           zip terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip terraform-provider-namegen.exe
+
+      - name: Zip macOS AMD64 binary
+        run: |
+          zip terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_amd64.zip terraform-provider-namegen_darwin_amd64
+
+      - name: Zip macOS ARM64 binary
+        run: |
+          zip terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_arm64.zip terraform-provider-namegen_darwin_arm64
+
+      - name: Generate SHA256SUMS
+        run: |
+          sha256sum terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_*.zip > terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_SHA256SUMS
 
       - name: Upload Linux zip artifact
         uses: actions/upload-artifact@v4
@@ -65,6 +83,24 @@ jobs:
           name: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip
           path: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip
 
+      - name: Upload macOS AMD64 zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_amd64.zip
+          path: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_amd64.zip
+
+      - name: Upload macOS ARM64 zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_arm64.zip
+          path: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_arm64.zip
+
+      - name: Upload SHA256SUMS
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_SHA256SUMS
+          path: terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_SHA256SUMS
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
@@ -72,4 +108,7 @@ jobs:
           files: |
             terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_linux_amd64.zip
             terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_windows_amd64.zip
+            terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_amd64.zip
+            terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_darwin_arm64.zip
+            terraform-provider-namegen_${{ steps.get_version.outputs.VERSION }}_SHA256SUMS
           generate_release_notes: true
