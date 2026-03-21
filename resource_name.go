@@ -214,7 +214,6 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
        apiURL := data.ApiUrl.ValueString()
        
        var httpResp *http.Response
-       var err error
        maxRetries := 3
        retryDelay := time.Second * 2
        
