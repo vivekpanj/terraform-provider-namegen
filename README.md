@@ -3,7 +3,7 @@
 
 This directory contains the Go source code for a custom Terraform provider that generates names using a configurable API and supports multiple name generation types.
 
-## � Overview
+## Overview
 
 This provider supports three name generation types:
 - **host**: Generate hostnames (requires `hostname_type` and `stack_id`)
@@ -11,11 +11,11 @@ This provider supports three name generation types:
 - **gcpname**: Generate GCP resource names (requires `resource_type`, `cloudregion`, `platform_code`, `environment`, `assettag`, `name_context`)
 
 **Distribution Options:**
-- 🏢 **Terraform Cloud Private Registry** (requires Business/Enterprise plan)
-- 📦 **GitHub Releases** (manual installation, free)
-- 💻 **Local Development** (using `make install`)
+- **Terraform Cloud Private Registry** (requires Business/Enterprise plan)
+- **GitHub Releases** (manual installation, free)
+- **Local Development** (using `make install`)
 
-## �🚀 Quick Start
+## Quick Start
 
 ### Local Go Build (Requires Go 1.21+)
 
@@ -34,7 +34,7 @@ terraform plan
 terraform apply
 ```
 
-## 📁 Provider Structure
+## Provider Structure
 
 ```
 name-generator-provider/
@@ -47,7 +47,7 @@ name-generator-provider/
 ```
 
 
-## 🔧 Development Workflow
+## Development Workflow
 
 ### Initial Setup
 ```bash
@@ -76,7 +76,7 @@ This repo includes a workflow at `.github/workflows/build-provider.yml` that:
 - Creates a GitHub Release with all binaries attached
 - Uploads artifacts for each build
 
-## 🏷️ Automatic Versioning & Releases
+## Automatic Versioning & Releases
 
 This provider uses **automatic continuous delivery**. Every push to the `main` branch automatically creates a new release with an incremented version.
 
@@ -176,7 +176,7 @@ output "name" {
 ```
 
 
-## 🎯 Provider & Resource Schema
+## Provider & Resource Schema
 
 ### Provider Configuration
 - `api_base_url` (**Required**) – Name generation API endpoint
@@ -215,8 +215,63 @@ output "name" {
 - `cached` – Whether result was cached
 - `last_updated` – Timestamp of last update
 
+---
 
-## 🔄 Local Installation
+## Error Handling & Retry Logic
+
+### Automatic Retry Mechanism
+
+The provider includes intelligent retry logic for transient failures:
+
+- **Maximum Retries:** 3 attempts per API call
+- **Retry Delay:** Exponential backoff (2s, 4s, 6s)
+- **Retries automatically on:**
+  - Network connection failures
+  - HTTP 5xx server errors
+  - Temporary API unavailability
+  - Connection timeouts
+
+### Error Detection
+
+The provider performs comprehensive error validation:
+
+1. **HTTP Status Code Check:** Verifies successful 2xx response
+2. **Empty Result Check:** Ensures API returns a non-empty value
+3. **Error Pattern Detection:** Identifies error messages in API responses
+   - Detects patterns: `error`, `err`, `failed`, `fail`, `invalid`, `denied`, `forbidden`, `unauthorized`
+   - Prevents error messages from being used as resource names
+4. **Name Validation:** Ensures generated names are at least 3 characters long
+
+### Error Scenarios
+
+**Transient Failures (Auto-Recovered):**
+```
+Attempt 1: Network timeout
+Wait 2 seconds...
+Attempt 2: Network timeout
+Wait 4 seconds...
+Attempt 3: Success ✓
+→ Resource created successfully
+```
+
+**API Error Response:**
+```
+API returns: "dberror3" or "err123"
+Error pattern detected
+→ Terraform apply fails with clear error message
+→ Resource NOT created or added to state
+```
+
+**Persistent Failure:**
+```
+All 3 attempts fail
+→ Error: "Unable to call name generation API after 3 attempts"
+→ User must investigate and re-run terraform apply
+```
+
+---
+
+## Local Installation
 
 When you run `make install`, the provider is installed to:
 
@@ -230,7 +285,7 @@ Terraform finds it when you specify:
 source = "local/namegen"
 ```
 
-## 🚀 Publishing to Terraform Cloud Private Registry
+## Publishing to Terraform Cloud Private Registry
 
 ### Prerequisites
 - GitHub repository named `terraform-provider-namegen` (must start with `terraform-provider-`)
@@ -374,14 +429,64 @@ The workflow will automatically:
 - [Provider Development Guide](https://developer.hashicorp.com/terraform/plugin/best-practices)
 
 
-## 🛠️ Customization & Extensibility
+## Customization & Extensibility
 
 - Add new resource types by creating new files and updating `provider.go`.
 - Enhance API integration (authentication, retries, caching, validation).
 - Add data sources for read-only operations.
 
+---
 
-## 📚 Further Reading
+## Troubleshooting
+
+### Common Issues
+
+#### Resource created with error message as name (e.g., "dberr3")
+**Problem:** API returned an error message but provider accepted it as a valid name  
+**Solution:** Update to the latest provider version which includes enhanced error detection  
+**Prevention:** The provider now validates API responses and rejects error patterns
+
+#### Partial apply - some resources succeed, others fail
+**Behavior:** This is normal Terraform behavior  
+**What happens:**
+- Successful resources are saved to state
+- Failed resources are not saved to state
+- Terraform exits with error status
+**Resolution:** Fix the issue and re-run `terraform apply` - only failed resources will be retried
+
+#### API connection failures
+**Automatic handling:** Provider retries up to 3 times with exponential backoff  
+**If all retries fail:** 
+1. Check API endpoint is accessible
+2. Verify network connectivity
+3. Check API authentication/authorization
+4. Review API logs for issues
+5. Run `terraform apply` again after resolving
+
+#### Provider not found after installation
+**Check:**
+1. Verify binary is in correct plugins directory
+2. Ensure version matches Terraform configuration
+3. Remove `.terraform.lock.hcl` and `.terraform/` directory
+4. Run `terraform init` again
+
+### Debug Mode
+
+Enable Terraform debug logging for detailed provider logs:
+
+```bash
+# Windows PowerShell
+$env:TF_LOG="DEBUG"
+terraform apply
+
+# Linux/Mac
+export TF_LOG=DEBUG
+terraform apply
+```
+
+---
+
+## Further Reading
 
 - [Terraform Plugin Framework](https://developer.hashicorp.com/terraform/plugin/framework)
 - [Provider Development Guide](https://developer.hashicorp.com/terraform/plugin/best-practices)

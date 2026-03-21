@@ -210,13 +210,41 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 	       return
        }
 
-       // Make HTTP request to name generation API
+       // Make HTTP request to name generation API with retry logic
        apiURL := data.ApiUrl.ValueString()
-       httpResp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
-       if err != nil {
-	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API: %s", err))
-	       return
+       
+       var httpResp *http.Response
+       var err error
+       maxRetries := 3
+       retryDelay := time.Second * 2
+       
+       for attempt := 1; attempt <= maxRetries; attempt++ {
+	       httpResp, err = http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+	       
+	       // Success - break out of retry loop
+	       if err == nil && httpResp != nil && httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {
+		       break
+	       }
+	       
+	       // If this was the last attempt, fail
+	       if attempt == maxRetries {
+		       if err != nil {
+			       resp.Diagnostics.AddError("API Error", fmt.Sprintf("Unable to call name generation API after %d attempts: %s", maxRetries, err))
+		       } else if httpResp != nil {
+			       resp.Diagnostics.AddError("API Error", fmt.Sprintf("API returned HTTP status %d after %d attempts", httpResp.StatusCode, maxRetries))
+		       }
+		       return
+	       }
+	       
+	       // Close response body if exists and retry
+	       if httpResp != nil && httpResp.Body != nil {
+		       httpResp.Body.Close()
+	       }
+	       
+	       // Wait before retrying (exponential backoff)
+	       time.Sleep(retryDelay * time.Duration(attempt))
        }
+       
        defer httpResp.Body.Close()
 
        var apiResp APIResponse
@@ -225,9 +253,25 @@ func (r *NameResource) Create(ctx context.Context, req resource.CreateRequest, r
 	       return
        }
 
-       // Check for error in result
-       if strings.Contains(strings.ToLower(apiResp.Result), "error") {
-	       resp.Diagnostics.AddError("API Error", fmt.Sprintf("API returned error: %s", apiResp.Result))
+       // Check if result is empty
+       if apiResp.Result == "" {
+	       resp.Diagnostics.AddError("API Error", "API returned empty result")
+	       return
+       }
+
+       // Check for error patterns in result (more comprehensive)
+       resultLower := strings.ToLower(apiResp.Result)
+       errorPatterns := []string{"error", "err", "failed", "fail", "invalid", "denied", "forbidden", "unauthorized"}
+       for _, pattern := range errorPatterns {
+	       if strings.Contains(resultLower, pattern) {
+		       resp.Diagnostics.AddError("API Error", fmt.Sprintf("API returned error: %s", apiResp.Result))
+		       return
+	       }
+       }
+
+       // Validate that result looks like a valid name (basic sanity check)
+       if len(apiResp.Result) < 3 {
+	       resp.Diagnostics.AddError("Invalid Name", fmt.Sprintf("Generated name is too short: %s", apiResp.Result))
 	       return
        }
 
